@@ -52,7 +52,7 @@
     "next":"latest" ,
     "nft.storage": "^7.2.0",
     "react": "latest" ,
-    "react-dom": "^18",
+    "react-dom": "latest",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
     "viem": "^2.27.2",

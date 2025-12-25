@@ -72,3 +72,4 @@ This project is being developed for the following tracks:
 - **Filecoin** - Decentralized storage
 - **ENS Product Good** - Web3 identity integration
 - **Base Mini App** - Base blockchain application
+<!-- prueba de edición desde GitHub -->

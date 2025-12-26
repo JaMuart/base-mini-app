@@ -1,8 +1,8 @@
 "use client";
 
 import type React from "react";
+import { useEffect, useState } from "react";
 
-import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,22 +19,46 @@ import lighthouse from "@lighthouse-web3/sdk";
 import NFT from "../contracts/NFT.json";
 import NFTMintSuccess from "@/components/NFTMintSuccess";
 
+function isLikelyRunningInsideBaseApp(): boolean {
+  if (typeof window === "undefined") return false;
+
+  const w = window as any;
+  const ua = navigator.userAgent || "";
+  const eth = w.ethereum as any;
+
+  // Heurísticas razonables para “host con wallet context”
+  if (w.__BASE_APP__ || w.BaseAppBridge || w.ReactNativeWebView) return true;
+  if (eth && (eth.isCoinbaseWallet || eth.isCoinbaseBrowser)) return true;
+
+  // Fallback por user-agent (no perfecto, pero útil)
+  if (/Coinbase|CoinbaseWallet|CBWallet|BaseApp/i.test(ua)) return true;
+
+  return false;
+}
+
 const lighthouseApiKey = process.env.NEXT_PUBLIC_LIGHTHOUSE_STORAGE_KEY;
-const filecoinPrivateKey = process.env.NEXT_PUBLIC_FILECOIN_PRIVATE_KEY;
 
 export default function CreateNFT() {
   const router = useRouter();
+
+  // Guardrail: mint solo en Base App
+  const [canMintHere, setCanMintHere] = useState(false);
+  useEffect(() => {
+    setCanMintHere(isLikelyRunningInsideBaseApp());
+  }, []);
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const { isConnected } = useAccount();
 
+  const { isConnected } = useAccount();
   const { progress, uploadFile } = useFileUpload();
   const { deployContractAsync } = useDeployContract();
 
   const [file, setFile] = useState<FileList>();
   const [fileMetadata, setFileMetadata] = useState<File | null>(null);
+
   const [isMinting, setIsMinting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [progressMint, setProgressMint] = useState(0);
@@ -49,22 +73,22 @@ export default function CreateNFT() {
   } | null>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files;
-    const fileMetadata = event.target.files?.[0];
-    if (file && fileMetadata && fileMetadata.type.startsWith("image/")) {
-      setFile(file);
-      setFileMetadata(fileMetadata);
-      const url = URL.createObjectURL(fileMetadata);
+    const fl = event.target.files;
+    const fm = event.target.files?.[0];
+    if (fl && fm && fm.type.startsWith("image/")) {
+      setFile(fl);
+      setFileMetadata(fm);
+      const url = URL.createObjectURL(fm);
       setPreviewUrl(url);
     }
   };
 
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    const file = event.dataTransfer.files?.[0];
-    if (file && file.type.startsWith("image/")) {
-      setSelectedFile(file);
-      const url = URL.createObjectURL(file);
+    const f = event.dataTransfer.files?.[0];
+    if (f && f.type.startsWith("image/")) {
+      setSelectedFile(f);
+      const url = URL.createObjectURL(f);
       setPreviewUrl(url);
     }
   };
@@ -73,11 +97,11 @@ export default function CreateNFT() {
     event.preventDefault();
   };
 
-  const uploadFileToLighthouse = async (file: FileList) => {
+  const uploadFileToLighthouse = async (fl: FileList) => {
     if (!lighthouseApiKey) return;
 
     console.log("⏳Uploading image to Lighthouse...");
-    const output = await lighthouse.upload(file, lighthouseApiKey, undefined);
+    const output = await lighthouse.upload(fl, lighthouseApiKey, undefined);
     console.log(
       "Image uploaded at: https://gateway.lighthouse.storage/ipfs/" +
         output.data.Hash,
@@ -94,10 +118,19 @@ export default function CreateNFT() {
   };
 
   const handleMintNFT = async () => {
+    // Guardrail producto: web NO mintea
+    if (!canMintHere) {
+      alert(
+        "Mint disponible solo dentro de Base App. Abrí Molotov desde Base App con tu wallet conectada.",
+      );
+      return;
+    }
+
     if (!file || !title || !description) return;
 
     if (!isConnected) {
       alert("Connect your Wallet");
+      return;
     }
 
     setIsMinting(true);
@@ -107,6 +140,10 @@ export default function CreateNFT() {
       const lighthouseCID = await uploadFileToLighthouse(file);
 
       setProgressMint(50);
+
+      if (!lighthouseCID) {
+        throw new Error("Failed to upload metadata to Lighthouse");
+      }
 
       setProgressMint(70);
 
@@ -122,7 +159,6 @@ export default function CreateNFT() {
       console.log("👩‍💻transactionHash", transactionHash);
 
       setProgressMint(80);
-
       setProgressMint(90);
       setProgressMint(100);
 
@@ -140,7 +176,9 @@ export default function CreateNFT() {
       setIsMinting(false);
       setProgressMint(0);
       alert(
-        `Failed to mint NFT: ${error instanceof Error ? error.message : "Unknown error"}`,
+        `Failed to mint NFT: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
       );
     }
   };
@@ -172,10 +210,8 @@ export default function CreateNFT() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
       <NavBar />
 
-      {/* Main Content */}
       <div className="container mx-auto px-4 py-8 flex-1">
         <div className="max-w-4xl mx-auto">
           <button
@@ -191,13 +227,18 @@ export default function CreateNFT() {
               Create Your NFT
             </h1>
             <p className="text-lg text-muted-foreground">
-              Upload your digital artwork and mint it as an NFT on the
-              blockchain
+              Upload your digital artwork and mint it as an NFT on the blockchain
             </p>
+
+            {!canMintHere && (
+              <div className="mt-4 rounded-lg border border-border bg-card/50 p-4 text-sm text-muted-foreground">
+                <b>Mint deshabilitado en web.</b> Para mintear NFTs, abrí Molotov
+                desde <b>Base App</b> con tu wallet conectada.
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
-            {/* File Upload Section */}
             <Card className="border-border/50 flex flex-col h-full">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -249,17 +290,15 @@ export default function CreateNFT() {
                     className="hidden"
                   />
                 </div>
+
                 <div className="flex justify-center pt-2 items-end h-full">
-                  {/* Upload Filecoin Button */}
                   <Button
                     onClick={handleUploadToFilecoin}
                     disabled={!fileMetadata}
                     className="text-lg px-12 py-6 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg"
                   >
                     <Sparkles className="w-4 h-4 mr-2" />
-                    {isUploading
-                      ? "Uploading to Filecoin..."
-                      : "Upload To Filecoin"}
+                    {isUploading ? "Uploading to Filecoin..." : "Upload To Filecoin"}
                     {isUploading && (
                       <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2 ">
                         <div
@@ -270,11 +309,11 @@ export default function CreateNFT() {
                     )}
                   </Button>
                 </div>
-                {progress == 100 && file && <p>✅ Uploaded to Filecoin</p>}
+
+                {progress === 100 && file && <p>✅ Uploaded to Filecoin</p>}
               </CardContent>
             </Card>
 
-            {/* NFT Details Section */}
             <Card className="border-border/50 flex flex-col h-full">
               <CardHeader>
                 <CardTitle>NFT Details</CardTitle>
@@ -310,13 +349,17 @@ export default function CreateNFT() {
                   <Button
                     size="lg"
                     className="text-lg px-12 py-6 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg"
-                    disabled={!file || !fileMetadata || !title || !description}
+                    disabled={
+                      !file || !fileMetadata || !title || !description || !canMintHere
+                    }
                     onClick={handleMintNFT}
                   >
                     <Sparkles className="w-5 h-5 mr-2" />
                     {isMinting
                       ? "Deploying your Digital Art Work..."
-                      : "Deploy Digital Art Work"}
+                      : canMintHere
+                        ? "Deploy Digital Art Work"
+                        : "Open in Base App to mint"}
                     {isMinting && (
                       <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2 ">
                         <div
@@ -331,7 +374,6 @@ export default function CreateNFT() {
             </Card>
           </div>
 
-          {/* Info Section */}
           <Card className="mt-8 border-border/50 bg-card/30">
             <CardContent className="p-6">
               <h3 className="font-semibold text-foreground mb-3">
@@ -339,8 +381,7 @@ export default function CreateNFT() {
               </h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  Your artwork will be uploaded to IPFS for decentralized
-                  storage thanks to Filecoin
+                  Your artwork will be uploaded to IPFS for decentralized storage thanks to Filecoin
                 </li>
               </ul>
             </CardContent>
@@ -349,4 +390,4 @@ export default function CreateNFT() {
       </div>
     </div>
   );
-}
+} 

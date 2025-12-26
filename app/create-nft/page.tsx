@@ -86,9 +86,9 @@ export default function CreateNFT() {
   };
 
   const handleUploadToFilecoin = async () => {
-    if (!fileMetadata || !filecoinPrivateKey) return;
+    if (!fileMetadata) return;
     setIsUploading(true);
-    const commp = await uploadFile(fileMetadata, filecoinPrivateKey);
+    const commp = await uploadFile(fileMetadata);
     console.log("✅ Uploaded to Filecoin with CID:", commp);
     setIsUploading(false);
   };

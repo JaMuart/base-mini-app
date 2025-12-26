@@ -1,6 +1,4 @@
-import {
-  Synapse,
-  RPC_URLS,
+import { useState } from "react";
   // TOKENS,
   // CONTRACT_ADDRESSES,
 } from "@filoz/synapse-sdk";
@@ -18,57 +16,29 @@ export type UploadedInfo = {
 
 export const useFileUpload = () => {
   const [progress, setProgress] = useState(0);
-  const uploadFile = async (file: File, filecoinPrivateKey: string) => {
+  const uploadFile = async (file: File) => {
     setProgress(0);
 
-    // 1) Convert File → ArrayBuffer
-    const arrayBuffer = await file.arrayBuffer();
-    // 2) Convert ArrayBuffer → Uint8Array
-    const uint8ArrayBytes = new Uint8Array(arrayBuffer);
+const formData = new FormData();
+formData.append("file", file);
 
-    setProgress(15);
+setProgress(40);
 
-    // 3) Create Synapse instance
-    const synapse = await Synapse.create({
-      privateKey: filecoinPrivateKey,
-      rpcURL: RPC_URL,
-    });
+const res = await fetch("/api/filecoin/upload", {
+  method: "POST",
+  body: formData,
+});
 
-    // --------- This is a one time setup --------------- //
+if (!res.ok) {
+  const data = await res.json().catch(() => ({}));
+  throw new Error(data?.error || "Upload failed");
+}
 
-    // // 1. Deposit USDFC tokens
-    // const amount = ethers.parseUnits("1", 18);
-    // await synapse.payments.deposit(amount, TOKENS.USDFC);
+const data = await res.json();
 
-    // // 2. Approve the Pandora service for automated payments
-    // const pandoraAddress =
-    //   CONTRACT_ADDRESSES.PANDORA_SERVICE[synapse.getNetwork()];
-    // -------------------------- //
+setProgress(100);
 
-    setProgress(40);
-
-    //4) Create Storage
-    const storageService = await synapse.createStorage();
-
-    setProgress(50);
-
-    //5) Checking
-    const pre = await storageService.preflightUpload(uint8ArrayBytes.length);
-    if (!pre.allowanceCheck.sufficient) {
-      throw new Error(
-        "Storage allowance is insufficient; top-up via UI or UI flow",
-      );
-    }
-
-    setProgress(70);
-
-    //6) Uploading
-    const result = await storageService.upload(uint8ArrayBytes);
-    const CID = result.commp.toString();
-
-    setProgress(100);
-
-    return CID;
+return data.cid as string;
   };
 
   return {

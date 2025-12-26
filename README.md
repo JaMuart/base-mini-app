@@ -32,7 +32,7 @@ Create a `.env` file in the root directory:
 NEXT_PUBLIC_ONCHAINKIT_API_KEY=your_coinbase_api_key_here
 
 # ⚠️ This key needs to be funded with USDFC and TFIL
-NEXT_PUBLIC_FILECOIN_PRIVATE_KEY=
+FILECOIN_PRIVATE_KEY=your_filecoin_private_key
 
 # This key is to upload data through lighthouse - speed
 NEXT_PUBLIC_LIGHTHOUSE_STORAGE_KEY=

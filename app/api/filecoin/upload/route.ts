@@ -3,7 +3,7 @@ import { Synapse, RPC_URLS } from "@filoz/synapse-sdk";
 
 export const runtime = "nodejs";
 
-const RPC_URL = RPC_URLS.calibration.websocket;
+const RPC_URL = RPC_URLS.calibration.http;
 
 export async function POST(req: Request) {
   try {

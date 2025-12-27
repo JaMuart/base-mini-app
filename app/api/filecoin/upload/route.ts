@@ -25,32 +25,59 @@ export async function POST(req: Request) {
       );
     }
 
-    const arrayBuffer = await file.arrayBuffer();
-    const uint8ArrayBytes = new Uint8Array(arrayBuffer);
+    const bytes = new Uint8Array(await file.arrayBuffer());
 
     const synapse = await Synapse.create({
       privateKey,
       rpcURL: RPC_URL,
     });
 
-    const storageService = await synapse.createStorage();
+    // 1) Preflight (con CDN habilitado)
+    const pre = await synapse.storage.preflightUpload(bytes.length, {
+      withCDN: true,
+    });
 
-    const pre = await storageService.preflightUpload(uint8ArrayBytes.length);
     if (!pre.allowanceCheck.sufficient) {
       return NextResponse.json(
-        { error: "Storage allowance is insufficient; top-up required" },
+        {
+          error: "Storage allowance is insufficient; top-up required",
+          details: pre.allowanceCheck,
+        },
         { status: 402 },
       );
     }
 
-    const result = await storageService.upload(uint8ArrayBytes);
-    const cid = result.commp.toString();
+    // 2) Contexto con CDN (suele ser más tolerante a providers inestables)
+    const ctx = await synapse.storage.createContext({ withCDN: true });
 
-    return NextResponse.json({ cid });
+    // 3) Upload
+    const result = await ctx.upload(bytes, {
+      pieceMetadata: {
+        filename: file.name,
+        contentType: file.type || "application/octet-stream",
+      },
+    });
+
+    // Según la API, UploadResult te da el piece CID (commp) como string
+    const cid = result.commp?.toString?.() ?? String(result.commp);
+
+    return NextResponse.json({
+      cid,
+      provider: ctx.provider,
+      dataSetId: ctx.dataSetId,
+      withCDN: ctx.withCDN,
+    });
   } catch (err: any) {
+    // Si explota el ping validation, devolvemos info útil para debug
+    const message = err?.message ?? "Upload failed";
+
     return NextResponse.json(
-      { error: err?.message ?? "Upload failed" },
+      {
+        error: message,
+        hint:
+          "If you see ping validation failures, providers may be down/unreachable. Try again later, or select a provider explicitly.",
+      },
       { status: 500 },
     );
   }
-} 
+}

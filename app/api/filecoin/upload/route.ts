@@ -5,6 +5,10 @@ export const runtime = "nodejs";
 
 const RPC_URL = RPC_URLS.calibration.http;
 
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 export async function POST(req: Request) {
   try {
     const privateKey = process.env.FILECOIN_PRIVATE_KEY;
@@ -32,12 +36,37 @@ export async function POST(req: Request) {
       rpcURL: RPC_URL,
     });
 
-    // 1) Preflight (con CDN habilitado)
-    const pre = await synapse.storage.preflightUpload(bytes.length, {
-      withCDN: true,
-    });
+    // Reintento simple: createStorage puede fallar por ping provider
+    let storageService: any = null;
+    let lastErr: any = null;
 
-    if (!pre.allowanceCheck.sufficient) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        storageService = await synapse.createStorage();
+        lastErr = null;
+        break;
+      } catch (e: any) {
+        lastErr = e;
+        // backoff: 0.5s, 1.5s, 3s
+        await sleep(attempt === 1 ? 500 : attempt === 2 ? 1500 : 3000);
+      }
+    }
+
+    if (!storageService) {
+      return NextResponse.json(
+        {
+          error:
+            lastErr?.message ??
+            "Failed to create storage service (all providers failed ping validation)",
+          hint:
+            "This is usually provider/network instability on Calibration. Try again later or switch network/provider configuration.",
+        },
+        { status: 500 },
+      );
+    }
+
+    const pre = await storageService.preflightUpload(bytes.length);
+    if (!pre.allowanceCheck?.sufficient) {
       return NextResponse.json(
         {
           error: "Storage allowance is insufficient; top-up required",
@@ -47,36 +76,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2) Contexto con CDN (suele ser más tolerante a providers inestables)
-    const ctx = await synapse.storage.createContext({ withCDN: true });
-
-    // 3) Upload
-    const result = await ctx.upload(bytes, {
-      pieceMetadata: {
-        filename: file.name,
-        contentType: file.type || "application/octet-stream",
-      },
-    });
-
-    // Según la API, UploadResult te da el piece CID (commp) como string
+    const result = await storageService.upload(bytes);
     const cid = result.commp?.toString?.() ?? String(result.commp);
 
-    return NextResponse.json({
-      cid,
-      provider: ctx.provider,
-      dataSetId: ctx.dataSetId,
-      withCDN: ctx.withCDN,
-    });
+    return NextResponse.json({ cid });
   } catch (err: any) {
-    // Si explota el ping validation, devolvemos info útil para debug
-    const message = err?.message ?? "Upload failed";
-
     return NextResponse.json(
-      {
-        error: message,
-        hint:
-          "If you see ping validation failures, providers may be down/unreachable. Try again later, or select a provider explicitly.",
-      },
+      { error: err?.message ?? "Upload failed" },
       { status: 500 },
     );
   }

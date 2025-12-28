@@ -12,7 +12,6 @@ import { ArrowLeft, Upload, ImageIcon, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import NavBar from "@/components/NavBar";
-import { useFileUpload } from "@/lib/filecoin";
 import { useAccount, useDeployContract } from "wagmi";
 import lighthouse from "@lighthouse-web3/sdk";
 
@@ -53,7 +52,6 @@ export default function CreateNFT() {
   const [description, setDescription] = useState("");
 
   const { isConnected } = useAccount();
-  const { progress, uploadFile } = useFileUpload();
   const { deployContractAsync } = useDeployContract();
 
   const [file, setFile] = useState<FileList>();
@@ -108,15 +106,30 @@ export default function CreateNFT() {
     );
     return output.data.Hash;
   };
-
   const handleUploadToFilecoin = async () => {
-    if (!fileMetadata) return;
+  if (!file) {
+    alert("Primero subí un archivo.");
+    return;
+  }
+  try {
     setIsUploading(true);
-    const commp = await uploadFile(fileMetadata);
-    console.log("✅ Uploaded to Filecoin with CID:", commp);
-    setIsUploading(false);
-  };
+    const lighthouseCID = await uploadFileToLighthouse(file);
 
+    if (!lighthouseCID) {
+      throw new Error("Lighthouse no devolvió CID");
+    }
+
+    console.log("✅ Uploaded to IPFS (Lighthouse) CID:", lighthouseCID);
+    alert(`✅ IPFS CID: ${lighthouseCID}`);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("❌ Upload error:", e);
+    alert(`Upload ERROR: ${msg}`);
+  } finally {
+    setIsUploading(false);
+  }
+};
+  
   const handleMintNFT = async () => {
     // Guardrail producto: web NO mintea
     if (!canMintHere) {

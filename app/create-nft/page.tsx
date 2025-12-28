@@ -115,7 +115,12 @@ export default function CreateNFT() {
   }
   try {
     setIsUploading(true);
-    const lighthouseCID = await uploadFileToLighthouse(file);
+    if (!ipfsCid) {
+  alert("Primero hacé Upload to IPFS para obtener el CID.");
+  return;
+}
+
+const tokenURI = `https://gateway.lighthouse.storage/ipfs/${ipfsCid}`;
     
     if (!lighthouseCID) {
       throw new Error("Lighthouse no devolvió CID");

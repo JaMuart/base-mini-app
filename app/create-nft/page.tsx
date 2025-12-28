@@ -116,13 +116,18 @@ export default function CreateNFT() {
   try {
     setIsUploading(true);
     const lighthouseCID = await uploadFileToLighthouse(file);
-
+    setIpfsCid(lighthouseCID);
+    
     if (!lighthouseCID) {
       throw new Error("Lighthouse no devolvió CID");
     }
 
     console.log("✅ Uploaded to IPFS (Lighthouse) CID:", lighthouseCID);
+
+    setIpfsCid(lighthouseCID);    
+    
     alert(`✅ IPFS CID: ${lighthouseCID}`);
+    
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("❌ Upload error:", e);

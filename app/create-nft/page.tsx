@@ -129,9 +129,7 @@ const tokenURI = `https://gateway.lighthouse.storage/ipfs/${ipfsCid}`;
     setIpfsCid(lighthouseCID);
     
     console.log("✅ Uploaded to IPFS (Lighthouse) CID:", lighthouseCID);
-    alert(`✅ IPFS CID: ${lighthouseCID}`);
-    
-    setIpfsCid(lighthouseCID);    
+    alert(`✅ IPFS CID: ${lighthouseCID}`);  
     
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

@@ -316,14 +316,14 @@ export default function CreateNFT() {
                       <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2 ">
                         <div
                           className="bg-green-500 h-2.5 rounded-full transition-all duration-500"
-                          style={{ width: `${progress}%` }}
+                          style={{ width: `100%` }}
                         ></div>
                       </div>
                     )}
                   </Button>
                 </div>
 
-                {progress === 100 && file && <p>✅ Uploaded to Filecoin</p>}
+                {isUploading === false && file && <p>✅ Upload finished</p>}
               </CardContent>
             </Card>
 

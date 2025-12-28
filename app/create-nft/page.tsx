@@ -69,7 +69,9 @@ export default function CreateNFT() {
     description: string;
     imageUrl: string;
   } | null>(null);
-
+  
+  const [ipfsCid, setIpfsCid] = useState<string>("");
+  
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const fl = event.target.files;
     const fm = event.target.files?.[0];

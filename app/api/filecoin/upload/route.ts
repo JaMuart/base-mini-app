@@ -34,6 +34,7 @@ export async function POST(req: Request) {
     const synapse = await Synapse.create({
       privateKey,
       rpcURL: RPC_URL,
+      withCDN: true,
     });
 
     // Reintento simple: createStorage puede fallar por ping provider

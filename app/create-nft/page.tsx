@@ -311,7 +311,7 @@ export default function CreateNFT() {
                     className="text-lg px-12 py-6 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg"
                   >
                     <Sparkles className="w-4 h-4 mr-2" />
-                    {isUploading ? "Uploading to Filecoin..." : "Upload To Filecoin"}
+                    {isUploading ? "Uploading to IPFS..." : "Upload To IPFS"}
                     {isUploading && (
                       <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2 ">
                         <div
